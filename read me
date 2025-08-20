@@ -1,0 +1,125 @@
+Project Overview
+The goal was to design and implement a digital system capable of performing arithmetic operations (addition and subtraction) on 3-digit signed decimal numbers, using Binary-Coded Decimal (BCD) representation. This involves designing both the datapath and the control logic, from basic gate-level circuits to higher-level Verilog modules.
+
+1. Core Building Blocks
+The system was built hierarchically, starting with the most fundamental components.
+
+A. Decimal to BCD Converter (Gate Level)
+Objective: To design a combinational logic circuit that converts a 4-bit binary number (representing 0-9) into its equivalent 8-bit BCD code. Since the input is limited to 0-9, the conversion is straightforward: the BCD representation is simply {4'b0000, binary_number}.
+
+Implementation: While this can be trivial in HDL (bcd = {4'b0, decimal_in}), the project emphasized a gate-level MOSFET-based design. This means the schematic was created using basic logic gates (AND, OR, NOT, XOR) whose underlying implementation is CMOS transistors.
+
+Logic: For a number D C B A, the BCD digit D7 D6 D5 D4 D3 D2 D1 D0 is defined as 0 0 0 0 D C B A. The gate-level circuit is a simple wiring: D7=0, D6=0, D5=0, D4=0, D3=D, D2=C, D1=B, D0=A.
+
+B. Single-Digit BCD Comparator
+Objective: Compare two BCD digits A and B and determine if A > B, A < B, or A == B.
+
+Implementation in Verilog: This was likely implemented using a behavioral or dataflow description.
+
+A == B is checked by comparing each bit: (A[3] ~^ B[3]) & (A[2] ~^ B[2]) & (A[1] ~^ B[1]) & (A[0] ~^ B[0]).
+
+A > B and A < B are determined by comparing the digits as 4-bit numbers, knowing they are always valid BCD (0-9). This can be done with a cascade of bit-wise comparisons starting from the MSB.
+
+C. Single-Digit BCD Adder
+Challenge: Adding two BCD digits (e.g., 5 + 7 = 12) can produce a result that is not a valid BCD digit (12 is 1100 in binary, but BCD requires two digits: 0001 and 0010).
+
+Solution Algorithm:
+
+Add the two BCD digits using a standard 4-bit binary adder. This gives a 4-bit sum (S_bin) and a carry-out (C_out_bin).
+
+If the binary sum is greater than 9 (S_bin > 9) or if the carry-out (C_out_bin) is 1, the result is invalid. A correction must be applied:
+
+Add 6 (0110) to the binary sum. This forces a carry into the next decade.
+
+The carry-out to the next higher digit (C_out_BCD) becomes 1.
+
+If the sum is less than or equal to 9, no correction is needed, and C_out_BCD is 0.
+
+Implementation: This was implemented as a combinational module in Verilog, using the logic:
+
+verilog
+module bcd_adder(input [3:0] a, b, output reg [3:0] sum, output reg carry);
+    reg [4:0] temp_sum; // 5-bit temporary register to hold the binary result + carry
+
+    always @(*) begin
+        temp_sum = a + b;        // Perform binary addition
+        if (temp_sum > 5'd9) begin // Check if correction needed
+            {carry, sum} = temp_sum + 6; // Add 6, the new carry is the MSB of the 5-bit result
+        end
+        else begin
+            carry = 1'b0;
+            sum = temp_sum[3:0];
+        end
+    end
+endmodule
+D. Single-Digit BCD Subtractor (using 9's Complement)
+Objective: Perform subtraction A - B on two BCD digits.
+
+Method: Subtraction is implemented using addition with the 9's complement, a common method for decimal arithmetic in computing.
+
+9's Complement: The 9's complement of a BCD digit B is 9 - B.
+
+Subtraction Algorithm (A - B):
+
+Calculate the 9's complement of the subtrahend B (9's_comp = 9 - B).
+
+Add the minuend A to the 9's complement of B: A + (9 - B).
+
+This operation yields A - B + 9.
+
+End-Around Carry: If there is a carry-out from this addition, it indicates the result is positive.
+
+Add the carry-out to the result: (A - B + 9) + 1 = A - B + 10. The +10 is handled by the carry, leaving the correct result.
+
+If there is no carry-out, the result is negative. In this case, the result is the negative of the 9's complement of the value obtained.
+
+Implementation: This requires a 9's complement block (a simple subtractor or lookup table) and a BCD adder, controlled by a multiplexer to handle the end-around carry.
+
+2. System Integration: 3-Digit Signed Arithmetic Unit
+The core of the project was integrating these blocks into a functional system.
+
+Architecture
+Input: Two 3-digit signed numbers. The sign is likely handled by a separate signal (e.g., sign_A, sign_B).
+
+Control Unit: A user-controlled input (e.g., opcode signal) selects the operation (Addition or Subtraction).
+
+Datapath:
+
+The three digits of each number are processed in parallel, from Least Significant Digit (LSD) to Most Significant Digit (MSD).
+
+For addition, the BCD adders are chained together, with the carry-out from one digit feeding into the carry-in of the next.
+
+For subtraction, the circuit uses the 9's complement method. The control logic would:
+
+Generate the 9's complement of each digit of B if it's the subtrahend.
+
+Set the carry-in of the LSD adder to 1 to complete the 10's complement operation (as 9's comp + 1 = 10's comp), which is the standard method for hardware subtraction.
+
+The sign of the result is determined by logic that compares the operands, their signs, and the final carry-out from the MSD.
+
+Output: The result is displayed as a signed 3-digit BCD number, along with a sign indicator.
+
+Role of "9's Complement" in the System
+The 9's complement method is crucial because it allows us to leverage the existing BCD adder hardware to perform subtraction. We are not building a separate subtractor; we are building a complement generator and re-using the adder. This is a classic example of hardware resource sharing, which saves area and reduces design complexity.
+
+3. Implementation & Tools
+Quartus Prime: This Intel (Altera) FPGA design suite was used for the entire design flow:
+
+Writing Code: Entering the structural and behavioral Verilog HDL descriptions for each module.
+
+Simulation: Using the built-in ModelSim or similar tool to perform functional simulation, verifying the logic of each block and the integrated system with testbenches.
+
+Synthesis & Place-and-Route: Translating the HDL code into a netlist of logic gates and mapping it to a target FPGA architecture (like a Cyclone or Max device).
+
+EDA Playground: This online platform is excellent for quick prototyping, testing small code snippets, and sharing designs. It was likely used for initial block development and verification before integrating them into the larger Quartus project.
+
+Conclusion
+This project successfully demonstrated a complete VLSI design cycle for a non-trivial digital system:
+
+Low-Level Design: Understanding and implementing gate-level logic (Decimal to BCD).
+
+Module Design: Creating optimized, reusable modules for fundamental operations (Comparator, Adder, Subtractor).
+
+System Integration: Combining these modules using a smart control strategy (9's complement) to build a more complex Arithmetic Unit.
+
+Verification: Using industry-standard tools (Quartus, EDA Playground) to simulate, synthesize, and validate the design. This provides practical experience with a standard digital design workflow.
