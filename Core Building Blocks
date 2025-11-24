@@ -1,0 +1,33 @@
+1. Core Building Blocks
+The system was built hierarchically, starting with the most fundamental components.
+
+A. Decimal to BCD Converter (Gate Level)
+Objective: To design a combinational logic circuit that converts a 4-bit binary number (representing 0-9) into its equivalent 8-bit BCD code. Since the input is limited to 0-9, the conversion is straightforward: the BCD representation is simply {4'b0000, binary_number}.
+
+Implementation: While this can be trivial in HDL (bcd = {4'b0, decimal_in}), the project emphasized a gate-level MOSFET-based design. This means the schematic was created using basic logic gates (AND, OR, NOT, XOR) whose underlying implementation is CMOS transistors.
+
+Logic: For a number D C B A, the BCD digit D7 D6 D5 D4 D3 D2 D1 D0 is defined as 0 0 0 0 D C B A. The gate-level circuit is a simple wiring: D7=0, D6=0, D5=0, D4=0, D3=D, D2=C, D1=B, D0=A.
+
+B. Single-Digit BCD Comparator
+Objective: Compare two BCD digits A and B and determine if A > B, A < B, or A == B.
+
+Implementation in Verilog: This was likely implemented using a behavioral or dataflow description.
+
+A == B is checked by comparing each bit: (A[3] ~^ B[3]) & (A[2] ~^ B[2]) & (A[1] ~^ B[1]) & (A[0] ~^ B[0]).
+
+A > B and A < B are determined by comparing the digits as 4-bit numbers, knowing they are always valid BCD (0-9). This can be done with a cascade of bit-wise comparisons starting from the MSB.
+
+C. Single-Digit BCD Adder
+Challenge: Adding two BCD digits (e.g., 5 + 7 = 12) can produce a result that is not a valid BCD digit (12 is 1100 in binary, but BCD requires two digits: 0001 and 0010).
+
+Solution Algorithm:
+
+Add the two BCD digits using a standard 4-bit binary adder. This gives a 4-bit sum (S_bin) and a carry-out (C_out_bin).
+
+If the binary sum is greater than 9 (S_bin > 9) or if the carry-out (C_out_bin) is 1, the result is invalid. A correction must be applied:
+
+Add 6 (0110) to the binary sum. This forces a carry into the next decade.
+
+The carry-out to the next higher digit (C_out_BCD) becomes 1.
+
+If the sum is less than or equal to 9, no correction is needed, and C_out_BCD is 0.
